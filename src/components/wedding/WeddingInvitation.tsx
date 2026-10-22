@@ -1,17 +1,17 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type FormEvent,
+  type PointerEvent as ReactPointerEvent,
+  type MouseEvent as ReactMouseEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { z } from "zod";
 import Image from "next/image";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import {
   ArrowDown,
@@ -19,24 +19,29 @@ import {
   ArrowRight,
   ArrowUp,
   CalendarDays,
-  Check,
   Clock3,
   Copy,
+  Flame,
+  Flower2,
+  Hand,
+  Landmark,
   MapPin,
   Maximize2,
   Menu,
+  Music,
   Music2,
   Pause,
-  Printer,
+  Phone,
   Share2,
+  Sun,
   Volume2,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import wedding, {
-  type RSVPSubmission,
+  type EventIcon,
   type WeddingEvent,
 } from "@/data/wedding";
-import { localRSVPService } from "@/lib/rsvp-service";
 
 const navigation = [
   ["Home", "home"],
@@ -44,7 +49,6 @@ const navigation = [
   ["Our Story", "story"],
   ["Gallery", "gallery"],
   ["Venue", "venue"],
-  ["RSVP", "rsvp"],
 ] as const;
 
 const petalGlyphs = ["✿", "❀", "✾", "❁", "✽", "❋"];
@@ -158,44 +162,6 @@ function PartyPoppers() {
   return <canvas ref={canvasRef} className="popper-canvas" aria-hidden="true" />;
 }
 
-const attendanceLabels = {
-  attending: "Joyfully attending",
-  maybe: "Still confirming",
-  declining: "Regretfully unable to attend",
-} as const;
-
-const guestSchema = z.object({
-  guestName: z.string().trim().min(2, "Please enter your name.").max(80, "Please keep your name under 80 characters."),
-  phone: z.string().trim().min(7, "Please enter a valid phone number.").max(25, "Please enter a valid phone number.").regex(/^[+\d()[\].\-\s]+$/, "Please enter a valid phone number.").refine((value) => {
-    const digits = value.replace(/\D/g, "").length;
-    return digits >= 7 && digits <= 15;
-  }, "Please enter a valid phone number."),
-  email: z.union([z.literal(""), z.string().trim().email("Please enter a valid email address.")]).optional(),
-  attendeeCount: z.number().int().min(wedding.rsvp.minAttendees).max(wedding.rsvp.maxAttendees),
-  attendance: z.enum(["attending", "maybe", "declining"], { required_error: "Please choose your response." }),
-  events: z.array(z.string()),
-  dietaryPreference: z.string(),
-  accommodation: z.boolean(),
-  transportation: z.boolean(),
-  message: z.string().max(500, "Please keep your message under 500 characters."),
-  consent: z.boolean(),
-}).superRefine((value, context) => {
-  if (value.attendance === "attending" && value.events.length === 0) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["events"], message: "Please select at least one celebration." });
-  }
-  if (wedding.rsvp.showConsent && !value.consent) {
-    context.addIssue({ code: z.ZodIssueCode.custom, path: ["consent"], message: "Please confirm before submitting." });
-  }
-});
-
-type GuestFormValues = z.infer<typeof guestSchema>;
-type Wish = { name: string; message: string };
-
-const seedWishes: Wish[] = [
-  { name: "With love", message: "Wishing you a lifetime filled with laughter, kindness, and beautiful little moments." },
-  { name: "A well-wisher", message: "May your new journey together be surrounded by love and endless happiness." },
-];
-
 function formatDate(date: string | null) {
   if (!date || Number.isNaN(Date.parse(date))) return "Date to be announced";
   const parts = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
@@ -262,13 +228,32 @@ function Logo({ className = "", size = 48 }: { className?: string; size?: number
   return <AssetImage src={wedding.assets.logo} alt="" className={`logo-mark ${className}`} width={size} height={size} />;
 }
 
-function SectionHeading({ eyebrow, title, light = false }: { eyebrow: string; title: string; light?: boolean }) {
+function SectionHeading({ eyebrow, title, subtitle, titleId, light = false }: { eyebrow: string; title: string; subtitle?: string; titleId?: string; light?: boolean }) {
   return (
     <div className={`section-heading ${light ? "section-heading-light" : ""}`}>
       <span className="eyebrow">{eyebrow}</span>
-      <h2>{title}</h2>
+      <h2 id={titleId}>{title}</h2>
+      {subtitle && <p className="section-subtitle">{subtitle}</p>}
       <span className="ornament" aria-hidden="true"><i />✦<i /></span>
     </div>
+  );
+}
+
+function FamilyCard({ label, names }: { label: string; names: string }) {
+  return (
+    <article className="family-card">
+      <span className="family-corner corner-tl" aria-hidden="true">❧</span>
+      <span className="family-corner corner-tr" aria-hidden="true">❧</span>
+      <span className="family-corner corner-bl" aria-hidden="true">❧</span>
+      <span className="family-corner corner-br" aria-hidden="true">❧</span>
+      <h3 className="family-label">{label}</h3>
+      <span className="ornament" aria-hidden="true"><i />❦<i /></span>
+      <p className="family-names">
+        {names.split(" & ").map((name, index) => (
+          <span key={name}>{index > 0 && <em aria-hidden="true">&amp;</em>}<strong>{name}</strong></span>
+        ))}
+      </p>
+    </article>
   );
 }
 
@@ -277,7 +262,7 @@ function EventCalendarActions({ event }: { event: WeddingEvent }) {
   const end = event.calendarEnd ? Date.parse(event.calendarEnd) : Number.NaN;
   if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return null;
   const address = wedding.privacy.hideFullAddresses ? null : event.address;
-  const details = [event.venueName, address, event.description].filter(Boolean).join("\n");
+  const details = [event.venueName, address].filter(Boolean).join("\n");
   const google = new URL("https://calendar.google.com/calendar/render");
   google.searchParams.set("action", "TEMPLATE");
   google.searchParams.set("text", event.name);
@@ -311,6 +296,189 @@ function EventCalendarActions({ event }: { event: WeddingEvent }) {
   );
 }
 
+const eventIcons: Record<EventIcon, LucideIcon> = {
+  flower: Flower2,
+  hand: Hand,
+  music: Music,
+  sun: Sun,
+  flame: Flame,
+};
+
+function formatEventDay(date: string | null) {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})/.exec(date ?? "");
+  if (!parts) return "Date to be announced";
+  const day = Number(parts[3]);
+  const suffix = day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th";
+  const month = new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(Number(parts[1]), Number(parts[2]) - 1, day, 12)));
+  return `${day}${suffix} ${month}`;
+}
+
+const DRAG_THRESHOLD = 5;
+const FLICK_DISTANCE = 40;
+
+function EventCarousel({ events, reducedMotion }: { events: WeddingEvent[]; reducedMotion: boolean }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ active: false, moved: false, startX: 0, startScroll: 0, startIndex: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(true);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const cardTarget = useCallback((track: HTMLDivElement, card: HTMLElement) => card.offsetLeft - parseFloat(getComputedStyle(track).paddingLeft || "0"), []);
+
+  const nearestIndex = useCallback((track: HTMLDivElement) => {
+    const cards = Array.from(track.children) as HTMLElement[];
+    if (track.scrollLeft + track.clientWidth >= track.scrollWidth - 4) return cards.length - 1;
+    let best = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    cards.forEach((card, index) => {
+      const distance = Math.abs(cardTarget(track, card) - track.scrollLeft);
+      if (distance < bestDistance) { best = index; bestDistance = distance; }
+    });
+    return best;
+  }, [cardTarget]);
+
+  const update = useCallback(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    setCanPrev(track.scrollLeft > 4);
+    setCanNext(track.scrollLeft + track.clientWidth < track.scrollWidth - 4);
+    setActiveIndex(nearestIndex(track));
+  }, [nearestIndex]);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    update();
+    track.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      track.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [update]);
+
+  const scrollToIndex = useCallback((index: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const cards = Array.from(track.children) as HTMLElement[];
+    const card = cards[Math.min(Math.max(index, 0), cards.length - 1)];
+    if (card) track.scrollTo({ left: cardTarget(track, card), behavior: reducedMotion ? "auto" : "smooth" });
+  }, [cardTarget, reducedMotion]);
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    const track = trackRef.current;
+    if (!track || event.pointerType !== "mouse" || event.button !== 0) return;
+    drag.current = { active: true, moved: false, startX: event.clientX, startScroll: track.scrollLeft, startIndex: nearestIndex(track) };
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const track = trackRef.current;
+    const state = drag.current;
+    if (!track || !state.active) return;
+    const delta = event.clientX - state.startX;
+    if (!state.moved) {
+      if (Math.abs(delta) < DRAG_THRESHOLD) return;
+      state.moved = true;
+      track.setPointerCapture(event.pointerId);
+      setDragging(true);
+    }
+    track.scrollLeft = state.startScroll - delta;
+  }
+
+  function endDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    const track = trackRef.current;
+    const state = drag.current;
+    if (!track || !state.active) return;
+    state.active = false;
+    if (!state.moved) return;
+    if (track.hasPointerCapture(event.pointerId)) track.releasePointerCapture(event.pointerId);
+    const delta = event.clientX - state.startX;
+    let target = nearestIndex(track);
+    if (target === state.startIndex && Math.abs(delta) > FLICK_DISTANCE) target += delta < 0 ? 1 : -1;
+    scrollToIndex(target);
+    setDragging(false);
+  }
+
+  function onClickCapture(event: ReactMouseEvent<HTMLDivElement>) {
+    if (!drag.current.moved) return;
+    drag.current.moved = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "ArrowRight") { event.preventDefault(); scrollToIndex(activeIndex + 1); }
+    if (event.key === "ArrowLeft") { event.preventDefault(); scrollToIndex(activeIndex - 1); }
+  }
+
+  return (
+    <motion.div
+      className="event-carousel"
+      initial="hidden"
+      whileInView="show"
+      viewport={{ once: true, amount: 0.15 }}
+      variants={{ hidden: {}, show: { transition: { staggerChildren: reducedMotion ? 0 : 0.1 } } }}
+    >
+      <button className="carousel-arrow carousel-prev" type="button" aria-label="Previous celebration" onClick={() => scrollToIndex(activeIndex - 1)} disabled={!canPrev}><ArrowLeft size={20} /></button>
+      <div
+        className={`event-track ${dragging ? "is-dragging" : ""}`}
+        ref={trackRef}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Wedding celebrations. Swipe, drag, or use the arrows to browse."
+        tabIndex={0}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        onClickCapture={onClickCapture}
+        onKeyDown={onKeyDown}
+        onDragStartCapture={(event) => event.preventDefault()}
+      >
+        {events.map((event, index) => {
+          const Icon = eventIcons[event.icon];
+          const mapUrl = !wedding.privacy.hideFullAddresses ? safeHttpUrl(event.mapUrl) : null;
+          const time = formatTime(event.startTime);
+          return (
+            <motion.div
+              className="event-slide"
+              key={event.id}
+              variants={{ hidden: { opacity: 0, y: reducedMotion ? 0 : 28 }, show: { opacity: 1, y: 0, transition: { duration: reducedMotion ? 0 : 0.6, ease: [0.2, 0.7, 0.2, 1] } } }}
+            >
+              <article className={`event-card event-${event.accentColor}`} aria-label={`${event.name}, ${index + 1} of ${events.length}`}>
+                <span className="event-number">0{index + 1}</span>
+                <span className="event-symbol" aria-hidden="true"><Icon size={22} strokeWidth={1.6} /></span>
+                <span className="event-kicker">The celebration</span>
+                <h3>{event.name}</h3>
+                <div className="event-info">
+                  <p className="event-detail"><CalendarDays size={16} aria-hidden="true" /><span><small>Date</small>{formatEventDay(event.date)}</span></p>
+                  {time && <p className="event-detail"><Clock3 size={16} aria-hidden="true" /><span><small>Time</small>{time.toUpperCase()}</span></p>}
+                  {event.venueName && <p className="event-detail"><Landmark size={16} aria-hidden="true" /><span><small>Venue</small>{event.venueName}</span></p>}
+                  {event.address && !wedding.privacy.hideFullAddresses && <p className="event-detail"><MapPin size={16} aria-hidden="true" /><span><small>Location</small>{event.address}</span></p>}
+                </div>
+                {(mapUrl || (event.calendarStart && event.calendarEnd)) && (
+                  <div className="event-actions">
+                    {mapUrl && <a className="text-action" href={mapUrl} target="_blank" rel="noreferrer"><MapPin size={15} /> View map</a>}
+                    <EventCalendarActions event={event} />
+                  </div>
+                )}
+              </article>
+            </motion.div>
+          );
+        })}
+      </div>
+      <button className="carousel-arrow carousel-next" type="button" aria-label="Next celebration" onClick={() => scrollToIndex(activeIndex + 1)} disabled={!canNext}><ArrowRight size={20} /></button>
+      <div className="event-dots" role="group" aria-label="Choose a celebration">
+        {events.map((event, index) => (
+          <button key={event.id} type="button" className={index === activeIndex ? "is-active" : ""} aria-label={`Go to ${event.name}`} aria-current={index === activeIndex} onClick={() => scrollToIndex(index)} />
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function WeddingInvitation() {
   const [coverOpen, setCoverOpen] = useState(true);
   const [doorsOpening, setDoorsOpening] = useState(false);
@@ -322,17 +490,11 @@ export default function WeddingInvitation() {
   const [musicPlaying, setMusicPlaying] = useState(false);
   const [musicUnavailable, setMusicUnavailable] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [rsvpSaved, setRsvpSaved] = useState<RSVPSubmission | null>(null);
-  const [rsvpStatus, setRsvpStatus] = useState("");
-  const [rsvpBusy, setRsvpBusy] = useState(false);
-  const [wishes, setWishes] = useState<Wish[]>(seedWishes);
-  const [wishStatus, setWishStatus] = useState("");
   const [shareStatus, setShareStatus] = useState("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const galleryTrackRef = useRef<HTMLDivElement>(null);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(true);
-  const wishFormRef = useRef<HTMLFormElement>(null);
   const openInvitationRef = useRef<HTMLButtonElement>(null);
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const lightboxCloseRef = useRef<HTMLButtonElement>(null);
@@ -343,28 +505,10 @@ export default function WeddingInvitation() {
 
   const enabledEvents = useMemo(() => wedding.events.filter((event) => event.enabled), []);
   const gallery = wedding.gallery;
-  const form = useForm<GuestFormValues>({
-    resolver: zodResolver(guestSchema),
-    defaultValues: {
-      guestName: "",
-      phone: "",
-      email: "",
-      attendeeCount: wedding.rsvp.minAttendees,
-      attendance: undefined,
-      events: [],
-      dietaryPreference: "",
-      accommodation: false,
-      transportation: false,
-      message: "",
-      consent: false,
-    },
-  });
 
   useEffect(() => {
     try {
       setCoverOpen(sessionStorage.getItem("sakshi-vivek-invitation-opened") !== "true");
-      const storedWishes = localStorage.getItem("sakshi-vivek-wishes-demo");
-      if (storedWishes) setWishes(JSON.parse(storedWishes) as Wish[]);
     } catch {
       setCoverOpen(true);
     }
@@ -493,50 +637,6 @@ export default function WeddingInvitation() {
     } catch {
       setMusicUnavailable(true);
       setMusicPlaying(false);
-    }
-  }
-
-  async function submitRSVP(values: GuestFormValues) {
-    setRsvpBusy(true);
-    setRsvpStatus("");
-    try {
-      const submission: RSVPSubmission = { ...values, email: values.email || undefined };
-      await localRSVPService.save(submission);
-      setRsvpSaved(submission);
-      setRsvpStatus("Thank you. Your response has been saved in this browser.");
-      form.reset();
-    } catch {
-      setRsvpStatus("We couldn’t save your response in this browser. Your entries are still here—please try again.");
-    } finally {
-      setRsvpBusy(false);
-    }
-  }
-
-  function editRSVP() {
-    if (!rsvpSaved) return;
-    form.reset({ ...rsvpSaved, email: rsvpSaved.email ?? "" });
-    setRsvpSaved(null);
-    setRsvpStatus("");
-  }
-
-  function submitWish(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = wishFormRef.current;
-    if (!formElement) return;
-    const data = new FormData(formElement);
-    const name = String(data.get("wish-name") ?? "").trim();
-    const message = String(data.get("wish-message") ?? "").trim();
-    if (name.length < 2 || message.length < 3 || message.length > 240) {
-      setWishStatus("Please add your name and a message of up to 240 characters.");
-      return;
-    }
-    // Demo wishes are local-only; production moderation must happen on a backend.
-    const updated = [{ name, message }, ...wishes];
-    setWishes(updated);
-    setWishStatus("Your wish has been added on this device.");
-    formElement.reset();
-    try { localStorage.setItem("sakshi-vivek-wishes-demo", JSON.stringify(updated)); } catch {
-      setWishStatus("Your wish is visible for now, but could not be saved on this device.");
     }
   }
 
@@ -680,7 +780,6 @@ export default function WeddingInvitation() {
             <div className="hero-buttons">
               {wedding.weddingDate && <button className="button button-outline-light" type="button" onClick={saveWeddingDate}><CalendarDays size={16} /> Save the date</button>}
               <a className="button button-light" href="#celebrations"><CalendarDays size={16} /> View celebrations</a>
-              <a className="button button-outline-light" href="#rsvp">Kindly reply</a>
             </div>
           </div>
           <a className="scroll-cue" href="#invitation" aria-label="Scroll to invitation message"><span>Scroll to discover</span><ArrowDown size={17} /></a>
@@ -694,9 +793,9 @@ export default function WeddingInvitation() {
             <span className="lotus-mark" aria-hidden="true">❋</span>
             <p className="invitation-message">{wedding.invitation.message}</p>
             <div className="family-grid">
-              <div><span>{wedding.families.brideFamilyLabel}</span><strong>{wedding.families.brideFamilyNames}</strong></div>
+              <FamilyCard label={wedding.families.brideFamilyLabel} names={wedding.families.brideFamilyNames} />
               <span className="family-divider" aria-hidden="true">✦</span>
-              <div><span>{wedding.families.groomFamilyLabel}</span><strong>{wedding.families.groomFamilyNames}</strong></div>
+              <FamilyCard label={wedding.families.groomFamilyLabel} names={wedding.families.groomFamilyNames} />
             </div>
           </Reveal>
         </section>
@@ -746,34 +845,13 @@ export default function WeddingInvitation() {
         <section className="events section-pad" id="celebrations">
           <div className="section-wrap">
             <SectionHeading eyebrow="A gathering of hearts" title="Wedding Celebrations" />
-            <div className="event-grid">
-              {enabledEvents.map((event, index) => (
-                <Reveal key={event.id} className={`event-card event-${event.accentColor}`}>
-                  <span className="event-number">0{index + 1}</span>
-                  {event.image && <Image className="event-card-image" src={event.image} alt="" width={84} height={84} />}
-                  <span className="event-symbol" aria-hidden="true">{event.icon}</span>
-                  <span className="event-kicker">The celebration</span>
-                  <h3>{event.name}</h3>
-                  <p className="event-date"><CalendarDays size={15} />{formatDate(event.date)}</p>
-                  {event.startTime && <p className="event-detail"><Clock3 size={15} />{formatTime(event.startTime)}{event.endTime ? ` – ${formatTime(event.endTime)}` : ""}</p>}
-                  {event.venueName && <p className="event-detail"><MapPin size={15} />{event.venueName}</p>}
-                  <p className="event-description">{event.description}</p>
-                  {event.dressCode && <p className="dress-code"><span>Dress with</span>{event.dressCode}</p>}
-                  <div className="event-actions">
-                    {!wedding.privacy.hideFullAddresses && safeHttpUrl(event.mapUrl) && <a className="text-action" href={safeHttpUrl(event.mapUrl)!} target="_blank" rel="noreferrer"><MapPin size={15} /> View map</a>}
-                    <EventCalendarActions event={event} />
-                    {event.showInRSVP && <a className="text-action" href="#rsvp"><ArrowRight size={15} /> RSVP for this event</a>}
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-            <p className="setup-note">Event dates and times will be added here once confirmed.</p>
+            <EventCarousel events={enabledEvents} reducedMotion={Boolean(reducedMotion)} />
           </div>
         </section>
 
         <section className="story section-pad" id="story">
           <div className="section-wrap">
-            <SectionHeading eyebrow="A journey, made sweeter together" title="Our Story" />
+            <SectionHeading eyebrow="A journey, made sweeter together" title="Our Love Story" />
             <ol className="story-timeline">
               {wedding.story.filter((entry) => entry.enabled).map((entry, index) => (
                 <motion.li
@@ -786,7 +864,7 @@ export default function WeddingInvitation() {
                 >
                   <article className="story-card">
                     <span className="story-number" aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="eyebrow">{entry.dateLabel}</span>
+                    {entry.dateLabel && <span className="eyebrow">{entry.dateLabel}</span>}
                     <h3>{entry.title}</h3>
                     <p>{entry.description}</p>
                   </article>
@@ -818,11 +896,12 @@ export default function WeddingInvitation() {
                 {gallery.map((image, index) => (
                   <motion.div
                     className="gallery-slide"
+                    style={{ ["--ratio" as string]: `${image.width / image.height}` }}
                     key={`${image.alt}-${index}`}
                     variants={{ hidden: { opacity: 0, x: reducedMotion ? 0 : 48, scale: reducedMotion ? 1 : 0.96 }, show: { opacity: 1, x: 0, scale: 1, transition: { duration: reducedMotion ? 0 : 0.6, ease: [0.2, 0.7, 0.2, 1] } } }}
                   >
                     <button className={`gallery-tile gallery-${image.color}`} type="button" onClick={() => setLightboxIndex(index)} aria-label={`Open photograph ${index + 1} of ${gallery.length}: ${image.alt}`}>
-                      {image.src ? <AssetImage src={image.src} alt="" fill sizes="(max-width: 760px) 72vw, 320px" className="gallery-photo" /> : <span className="gallery-art" aria-hidden="true"><span>✿</span><i /><b /></span>}
+                      {image.src ? <AssetImage src={image.src} alt="" fill sizes="(max-width: 760px) 86vw, 720px" className="gallery-photo" /> : <span className="gallery-art" aria-hidden="true"><span>✿</span><i /><b /></span>}
                       <span className="gallery-index">0{index + 1}</span>
                       <span className="gallery-preview" aria-hidden="true">
                         <span className="gallery-category">{image.category}</span>
@@ -875,82 +954,34 @@ export default function WeddingInvitation() {
           </div>
         </section>
 
-        <section className="rsvp section-pad" id="rsvp">
+        <section className="correspondence section-pad" id="correspondence" aria-labelledby="correspondence-title">
           <div className="section-wrap">
-            <SectionHeading eyebrow="Your presence means the world" title="Will You Join Us?" />
-            <div className="rsvp-shell">
-              {rsvpSaved ? (
-                <div className="rsvp-success" aria-live="polite">
-                  <Logo className="success-logo" size={72} />
-                  <span className="success-mark"><Check size={25} /></span>
-                  <span className="eyebrow">Response received</span>
-                  <h3>Thank you, {rsvpSaved.guestName}.</h3>
-                  <p>We’re grateful you took a moment to let us know. Your response is saved on this device.</p>
-                  <div className="confirmation-summary">
-                    <span><strong>Your reply</strong>{attendanceLabels[rsvpSaved.attendance]}</span>
-                    <span><strong>Guests</strong>{rsvpSaved.attendeeCount}</span>
-                    {rsvpSaved.events.length > 0 && <span><strong>Celebrations</strong>{rsvpSaved.events.map((id) => wedding.events.find((event) => event.id === id)?.shortTitle).filter(Boolean).join(", ")}</span>}
-                  </div>
-                  <div className="success-actions"><button className="button button-primary" type="button" onClick={() => window.print()}><Printer size={16} /> Print confirmation</button><button className="text-action" type="button" onClick={editRSVP}>Change my response</button></div>
-                </div>
-              ) : (
-                <form className="rsvp-form" onSubmit={form.handleSubmit(submitRSVP)} noValidate>
-                  <p className="form-intro">A little note will help us welcome you well. Kindly share your response below.</p>
-                  {wedding.rsvpDeadline && <p className="rsvp-deadline">Kindly reply by {formatDate(wedding.rsvpDeadline)}.</p>}
-                  <div className="form-grid">
-                    <label className="field"><span>Your name <i>*</i></span><input autoComplete="name" {...form.register("guestName")} aria-invalid={Boolean(form.formState.errors.guestName)} aria-describedby="guestName-error" placeholder="Name as we know you" />{form.formState.errors.guestName && <small id="guestName-error" className="field-error">{form.formState.errors.guestName.message}</small>}</label>
-                    <label className="field"><span>Phone number <i>*</i></span><input type="tel" autoComplete="tel" {...form.register("phone")} aria-invalid={Boolean(form.formState.errors.phone)} aria-describedby="phone-error" placeholder="Your preferred number" />{form.formState.errors.phone && <small id="phone-error" className="field-error">{form.formState.errors.phone.message}</small>}</label>
-                    <label className="field"><span>Email address <small>(optional)</small></span><input type="email" autoComplete="email" {...form.register("email")} aria-invalid={Boolean(form.formState.errors.email)} aria-describedby="email-error" placeholder="you@example.com" />{form.formState.errors.email && <small id="email-error" className="field-error">{form.formState.errors.email.message}</small>}</label>
-                    <label className="field"><span>Number of attendees <i>*</i></span><select {...form.register("attendeeCount", { valueAsNumber: true })} aria-label="Number of attendees" aria-invalid={Boolean(form.formState.errors.attendeeCount)} aria-describedby="attendeeCount-error">{Array.from({ length: wedding.rsvp.maxAttendees - wedding.rsvp.minAttendees + 1 }, (_, index) => wedding.rsvp.minAttendees + index).map((number) => <option value={number} key={number}>{number}</option>)}</select>{form.formState.errors.attendeeCount && <small id="attendeeCount-error" className="field-error">Choose between {wedding.rsvp.minAttendees} and {wedding.rsvp.maxAttendees} attendees.</small>}</label>
-                  </div>
-                  <fieldset className="choice-fieldset" aria-describedby="attendance-error">
-                    <legend>Your response <i>*</i></legend>
-                    <div className="radio-row">
-                      {Object.entries(attendanceLabels).map(([value, label]) => <label className="choice-pill" key={value}><input type="radio" value={value} {...form.register("attendance")} /><span>{label}</span></label>)}
+            <SectionHeading eyebrow={wedding.correspondence.eyebrow} title={wedding.correspondence.title} subtitle={wedding.correspondence.subtitle} titleId="correspondence-title" />
+            <div className="contact-grid">
+              {[
+                { side: wedding.families.brideFamilyLabel, ...wedding.correspondence.brideSide },
+                { side: wedding.families.groomFamilyLabel, ...wedding.correspondence.groomSide },
+              ].map((contact) => (
+                <Reveal key={contact.id} className="contact-reveal">
+                  <article className="contact-card">
+                    <span className="family-corner corner-tl" aria-hidden="true">❧</span>
+                    <span className="family-corner corner-tr" aria-hidden="true">❧</span>
+                    <span className="family-corner corner-bl" aria-hidden="true">❧</span>
+                    <span className="family-corner corner-br" aria-hidden="true">❧</span>
+                    <span className="eyebrow contact-side">{contact.side}</span>
+                    <div className="contact-photo">
+                      {contact.photo ? <AssetImage src={contact.photo} alt={`Portrait of ${contact.name}`} fill sizes="132px" className="contact-photo-image" /> : <span aria-hidden="true">{contact.name[0]}</span>}
                     </div>
-                    {form.formState.errors.attendance && <small id="attendance-error" className="field-error">{form.formState.errors.attendance.message}</small>}
-                  </fieldset>
-                  <fieldset className="choice-fieldset" aria-describedby="events-error">
-                    <legend>Which celebrations will you join?</legend>
-                    <div className="checkbox-row">
-                      {enabledEvents.filter((event) => event.showInRSVP).map((event) => <label className="choice-check" key={event.id}><input type="checkbox" value={event.id} {...form.register("events")} /><span>{event.shortTitle}</span></label>)}
-                    </div>
-                    {form.formState.errors.events && <small id="events-error" className="field-error">{form.formState.errors.events.message}</small>}
-                  </fieldset>
-                  <div className="form-grid">
-                    <label className="field"><span>Dietary preference</span><select {...form.register("dietaryPreference")}><option value="">Select if you wish</option><option>Vegetarian</option><option>Jain</option><option>Vegan</option><option>Other</option></select></label>
-                    <div className="field"><span>A little help with</span><div className="checkbox-row compact"><label className="choice-check"><input type="checkbox" {...form.register("accommodation")} /><span>Accommodation</span></label><label className="choice-check"><input type="checkbox" {...form.register("transportation")} /><span>Transportation</span></label></div></div>
-                  </div>
-                  <label className="field"><span>A message for us <small>(optional)</small></span><textarea rows={3} maxLength={500} {...form.register("message")} aria-invalid={Boolean(form.formState.errors.message)} aria-describedby="message-error" placeholder="Share a note or a wish..." />{form.formState.errors.message && <small id="message-error" className="field-error">{form.formState.errors.message.message}</small>}</label>
-                  {wedding.rsvp.showConsent && <label className="consent-field"><input type="checkbox" {...form.register("consent")} /><span>I understand this demo saves my response only in this browser.</span></label>}
-                  {form.formState.errors.consent && <small className="field-error">{form.formState.errors.consent.message}</small>}
-                  <div className="form-bottom"><button className="button button-primary" type="submit" disabled={rsvpBusy}>{rsvpBusy ? "Sending…" : "Send my response"}<ArrowRight size={16} /></button><span>We’ll be so glad to hear from you.</span></div>
-                  <p className="privacy-note">Demo note: your response is stored only in this browser, not sent to the couple.</p>
-                </form>
-              )}
-              {rsvpStatus && !rsvpSaved && <p className="status-message" role="status">{rsvpStatus}</p>}
+                    <h3 className="contact-heading">{contact.heading}</h3>
+                    <span className="ornament" aria-hidden="true"><i />❦<i /></span>
+                    <p className="contact-name">{contact.name}</p>
+                    <a className="contact-phone" href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}><Phone size={15} aria-hidden="true" />{contact.phone}</a>
+                  </article>
+                </Reveal>
+              ))}
             </div>
           </div>
         </section>
-
-        {wedding.theme.showWishes && (
-          <section className="wishes section-pad">
-            <div className="section-wrap wishes-wrap">
-              <SectionHeading eyebrow="A note to keep close" title="Send a Little Love" />
-              <div className="wishes-layout">
-                <div className="wish-list">
-                  {wishes.map((wish, index) => <article className="wish-card" key={`${wish.name}-${index}`}><span aria-hidden="true">“</span><p>{wish.message}</p><strong>{wish.name}</strong></article>)}
-                </div>
-                <form className="wish-form" ref={wishFormRef} onSubmit={submitWish}>
-                  <p>Leave a wish for our new beginning.</p>
-                  <label className="field"><span>Your name</span><input name="wish-name" required minLength={2} maxLength={60} placeholder="Your name" /></label>
-                  <label className="field"><span>Your message</span><textarea name="wish-message" required minLength={3} maxLength={240} rows={3} placeholder="Write something from the heart..." /></label>
-                  <div className="wish-submit"><button className="button button-primary" type="submit">Share your wish <ArrowRight size={16} /></button><small aria-live="polite">{wishStatus || "Your wish is shown only on this device."}</small></div>
-                </form>
-              </div>
-            </div>
-          </section>
-        )}
 
         <section className="share-section section-pad" aria-labelledby="share-title">
           <Reveal className="share-inner">
@@ -1008,7 +1039,8 @@ export default function WeddingInvitation() {
             <button className="lightbox-close" ref={lightboxCloseRef} type="button" onClick={() => setLightboxIndex(null)} aria-label="Close gallery"><X /></button>
             <button className="lightbox-arrow lightbox-left" type="button" aria-label="Previous photograph" onClick={() => setLightboxIndex((lightboxIndex - 1 + gallery.length) % gallery.length)}><ArrowLeft /></button>
             <motion.div
-              className={`lightbox-art gallery-${gallery[lightboxIndex].color}`}
+              className={`lightbox-art gallery-${gallery[lightboxIndex].color} ${gallery[lightboxIndex].src ? "has-photo" : ""}`}
+              style={{ ["--ratio" as string]: `${gallery[lightboxIndex].width / gallery[lightboxIndex].height}` }}
               drag="x"
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.25}
@@ -1017,7 +1049,7 @@ export default function WeddingInvitation() {
                 else if (info.offset.x > 60) setLightboxIndex((lightboxIndex - 1 + gallery.length) % gallery.length);
               }}
             >
-              {gallery[lightboxIndex].src ? <AssetImage src={gallery[lightboxIndex].src!} alt={gallery[lightboxIndex].alt} fill sizes="(max-width: 760px) 82vw, 640px" /> : <span aria-hidden="true">✿</span>}
+              {gallery[lightboxIndex].src ? <AssetImage src={gallery[lightboxIndex].src!} alt={gallery[lightboxIndex].alt} fill sizes="(max-width: 760px) 82vw, 720px" /> : <span aria-hidden="true">✿</span>}
               {!gallery[lightboxIndex].src && <p>A photograph will bloom here</p>}
             </motion.div>
             <div className="lightbox-caption"><span>{gallery[lightboxIndex].alt}</span><span>{lightboxIndex + 1} / {gallery.length}</span></div>

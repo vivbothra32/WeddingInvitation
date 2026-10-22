@@ -14,6 +14,8 @@ export interface Couple {
   locationLabel: string;
 }
 
+export type EventIcon = "flower" | "hand" | "music" | "sun" | "flame";
+
 export interface WeddingEvent {
   id: string;
   name: string;
@@ -24,13 +26,9 @@ export interface WeddingEvent {
   venueName: string | null;
   address: string | null;
   mapUrl: string | null;
-  description: string;
-  dressCode: string | null;
-  icon: string;
-  image: string | null;
+  icon: EventIcon;
   accentColor: string;
   enabled: boolean;
-  showInRSVP: boolean;
   calendarStart: string | null;
   calendarEnd: string | null;
 }
@@ -49,6 +47,8 @@ export interface GalleryImage {
   alt: string;
   category: string;
   color: string;
+  width: number;
+  height: number;
 }
 
 export interface Venue {
@@ -70,18 +70,12 @@ export interface Contact {
   number: string;
 }
 
-export interface RSVPSubmission {
-  guestName: string;
+export interface CorrespondenceContact {
+  id: string;
+  heading: string;
+  name: string;
   phone: string;
-  email?: string;
-  attendeeCount: number;
-  attendance: "attending" | "maybe" | "declining";
-  events: string[];
-  dietaryPreference: string;
-  accommodation: boolean;
-  transportation: boolean;
-  message: string;
-  consent: boolean;
+  photo: string | null;
 }
 
 export interface WeddingConfig {
@@ -101,22 +95,33 @@ export interface WeddingConfig {
   gallery: GalleryImage[];
   venues: Venue[];
   contacts: Contact[];
+  correspondence: {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    brideSide: CorrespondenceContact;
+    groomSide: CorrespondenceContact;
+  };
   social: { whatsappShareText: string };
-  rsvpDeadline: string | null;
-  rsvp: { minAttendees: number; maxAttendees: number; showConsent: boolean };
   privacy: { showContactNumbers: boolean; hideFullAddresses: boolean };
   theme: {
     showPetals: boolean;
     enableMusic: boolean;
     enableParallax: boolean;
     musicPath: string;
-    showWishes: boolean;
   };
 }
 
-const mainVenue = {
-  name: "Silpanchal Bhawan",
-  address: "Ward 5, Mahananda Para, Burdwan Road, Siliguri - 734005",
+const eventLocation = "Burdwan Road, Siliguri";
+
+const mishraNiwas = {
+  name: "Mishra Niwas",
+  address: eventLocation,
+};
+
+const Silpanchal = {
+  name: "4th Floor, Silpanchal Bhawan",
+  address: eventLocation,
   mapUrl: "https://maps.app.goo.gl/ZJr6wL1YVcsWAd7d8",
 };
 
@@ -154,176 +159,141 @@ const wedding: WeddingConfig = {
     groomFamilyLabel: "Groom’s Family",
     groomFamilyNames: "Sushila Bothra & Lt. Ranjeet Kumar Bothra",
   },
-  events: ([
+  events: [
+    {
+      id: "puja",
+      name: "Satyanarayan Puja & Shagun",
+      shortTitle: "Puja & Shagun",
+      date: "2026-11-19T00:00:00+05:30",
+      startTime: "10:00:00",
+      endTime: null,
+      venueName: mishraNiwas.name,
+      address: mishraNiwas.address,
+      mapUrl: null,
+      icon: "flower",
+      accentColor: "gold",
+      enabled: true,
+      calendarStart: null,
+      calendarEnd: null,
+    },
     {
       id: "mehendi",
       name: "Mehendi",
       shortTitle: "Mehendi",
-      date: "2026-11-20T00:00:00+05:30",
-      startTime: "11:00:00",
+      date: "2026-11-19T00:00:00+05:30",
+      startTime: "16:00:00",
       endTime: null,
-      venueName: null,
-      address: null,
+      venueName: mishraNiwas.name,
+      address: mishraNiwas.address,
       mapUrl: null,
-      description:
-        "Intricate henna, festive laughter, and a little bit of love hidden in every design. Come celebrate as the colours of tradition begin to bloom.",
-      dressCode: null,
-      icon: "❦",
-      image: null,
+      icon: "hand",
       accentColor: "emerald",
       enabled: true,
-      showInRSVP: true,
       calendarStart: null,
       calendarEnd: null,
     },
     {
       id: "sangeet",
-      name: "Sangeet Night",
-      shortTitle: "Sangeet",
+      name: "Tilak & Sangeet",
+      shortTitle: "Tilak & Sangeet",
       date: "2026-11-20T00:00:00+05:30",
-      startTime: "19:00:00",
+      startTime: "17:00:00",
       endTime: null,
-      venueName: null,
-      address: null,
-      mapUrl: null,
-      description:
-        "An evening of rhythm, revelry, and enthusiastic dance moves. Come cheer, sing, and celebrate as the two families take over the dance floor.",
-      dressCode: null,
-      icon: "♫",
-      image: null,
+      venueName: Silpanchal.name,
+      address: Silpanchal.address,
+      mapUrl: Silpanchal.mapUrl,
+      icon: "music",
       accentColor: "plum",
       enabled: true,
-      showInRSVP: true,
-      calendarStart: null,
-      calendarEnd: null,
-    },
-    {
-      id: "mayera",
-      name: "Mayera",
-      shortTitle: "Mayera",
-      date: "2026-11-21T00:00:00+05:30",
-      startTime: "11:00:00",
-      endTime: null,
-      venueName: null,
-      address: null,
-      mapUrl: null,
-      description:
-        "A celebration wrapped in family love, cheerful traditions, heartfelt blessings, and just the right amount of joyful chaos.",
-      dressCode: null,
-      icon: "✿",
-      image: null,
-      accentColor: "rose",
-      enabled: true,
-      showInRSVP: true,
       calendarStart: null,
       calendarEnd: null,
     },
     {
       id: "haldi",
-      name: "Haldi",
-      shortTitle: "Haldi",
+      name: "Matikor & Haldi",
+      shortTitle: "Matikor & Haldi",
       date: "2026-11-21T00:00:00+05:30",
-      startTime: "14:00:00",
+      startTime: "10:00:00",
       endTime: null,
-      venueName: null,
-      address: null,
-      mapUrl: null,
-      description:
-        "Sunshine, laughter, and a generous splash of haldi. Wear your brightest smile and be ready for the glow-up before the big day.",
-      dressCode: null,
-      icon: "☼",
-      image: null,
+      venueName: Silpanchal.name,
+      address: Silpanchal.address,
+      mapUrl: Silpanchal.mapUrl,
+      icon: "sun",
       accentColor: "saffron",
       enabled: true,
-      showInRSVP: true,
-      calendarStart: null,
-      calendarEnd: null,
-    },
-    {
-      id: "baraat",
-      name: "Baraat",
-      shortTitle: "Baraat",
-      date: "2026-11-21T00:00:00+05:30",
-      startTime: "18:00:00",
-      endTime: null,
-      venueName: null,
-      address: null,
-      mapUrl: null,
-      description:
-        "The music gets louder, the dancing gets bolder, and the celebration makes its grand entrance. Join the baraat and bring your best moves.",
-      dressCode: null,
-      icon: "❋",
-      image: null,
-      accentColor: "vermilion",
-      enabled: true,
-      showInRSVP: true,
       calendarStart: null,
       calendarEnd: null,
     },
     {
       id: "wedding",
-      name: "Wedding & Seven Pheras",
-      shortTitle: "The Wedding",
+      name: "Baraat & Pheras",
+      shortTitle: "Baraat & Pheras",
       date: "2026-11-21T00:00:00+05:30",
-      startTime: "21:00:00",
+      startTime: "19:00:00",
       endTime: null,
-      venueName: null,
-      address: null,
-      mapUrl: null,
-      description:
-        "Amid sacred vows, loving families, and seven meaningful pheras, Sakshi and Vivek begin their forever. Your blessings will make the moment complete.",
-      dressCode: null,
-      icon: "❀",
-      image: null,
-      accentColor: "gold",
+      venueName: Silpanchal.name,
+      address: Silpanchal.address,
+      mapUrl: Silpanchal.mapUrl,
+      icon: "flame",
+      accentColor: "vermilion",
       enabled: true,
-      showInRSVP: true,
       calendarStart: null,
       calendarEnd: null,
+    },
+  ],
+  story: [
+    {
+      title: "The First Hello 👋",
+      dateLabel: "",
+      description: "Every story has a beginning, and ours started with a simple hello. Nothing grand, nothing planned. Just two people, an easy conversation, and a feeling that this one was going to stay. Sakshi and Vivek didn’t know it then, but that small moment would become the first page of everything that followed.",
+      image: "/images/story/OurStory1.jpeg",
+      alignment: "left",
+      enabled: true,
     },
     {
-      id: "reception",
-      name: "Reception",
-      shortTitle: "Reception",
-      date: null,
-      startTime: null,
-      endTime: null,
-      venueName: null,
-      address: null,
-      mapUrl: null,
-      description: "An evening to gather, celebrate, and make a few more memories together.",
-      dressCode: null,
-      icon: "✧",
-      image: null,
-      accentColor: "champagne",
-      enabled: false,
-      showInRSVP: true,
-      calendarStart: null,
-      calendarEnd: null,
+      title: "Jokes, Faces & Everything In Between 😄",
+      dateLabel: "",
+      description: "I crack the jokes, she makes the faces, and somehow it works perfectly. Annoying her became my favourite hobby, and her eye-rolls became my favourite compliment.",
+      image: "/images/story/OurStory2.jpeg",
+      alignment: "right",
+      enabled: true,
     },
-  ]).map((event) => (event.enabled ? { ...event, venueName: mainVenue.name, address: mainVenue.address, mapUrl: mainVenue.mapUrl } : event)),
-  story: [
-    { title: "First Meeting", dateLabel: "[Add date or season]", description: "[Add a short memory from your first meeting.]", image: "/images/story/OurStory1.jpeg", alignment: "left", enabled: true },
-    { title: "Friendship", dateLabel: "[Add date or season]", description: "[Share a favorite moment from your friendship.]", image: "/images/story/OurStory2.jpeg", alignment: "right", enabled: true },
-    { title: "The Moment We Knew", dateLabel: "[Add date or season]", description: "[Describe the moment you knew you wanted a future together.]", image: "/images/story/OurStory3.jpeg", alignment: "left", enabled: true },
-    { title: "The Proposal", dateLabel: "[Add date or season]", description: "[Add a few words about the proposal.]", image: null, alignment: "right", enabled: false },
-    { title: "Seven Pheras", dateLabel: "[Add date or season]", description: "[Add a note about the beginning of your married life.]", image: null, alignment: "left", enabled: false },
+    {
+      title: "The Moment We Just Knew 💛",
+      dateLabel: "",
+      description: "It never felt like an effort, and even the silences felt comfortable. Somewhere along the way, we made each other feel complete, and that was all the proof we needed.",
+      image: "/images/story/OurStory3.jpeg",
+      alignment: "left",
+      enabled: true,
+    },
   ],
   gallery: [
-    { src: "/images/gallery/OurGallery1.jpeg", alt: "A warm, sunlit moment together", category: "Moments", color: "blush" },
-    { src: "/images/gallery/OurGallery2.jpeg", alt: "A celebration in soft evening light", category: "Celebrations", color: "sage" },
-    { src: "/images/gallery/OurGallery3.jpeg", alt: "A quiet moment shared together", category: "Moments", color: "ochre" },
-    { src: "/images/gallery/OurGallery4.jpeg", alt: "A joyful memory with family", category: "Celebrations", color: "rose" },
-    { src: "/images/gallery/OurGallery5.jpeg", alt: "A glimpse of the journey so far", category: "Moments", color: "plum" },
-    { src: "/images/gallery/OurGallery6.jpeg", alt: "A little joy, saved for always", category: "Celebrations", color: "cream" },
+    { src: "/images/gallery/OurGallery1.jpeg", alt: "A warm, sunlit moment together", category: "Moments", color: "blush", width: 851, height: 1280 },
+    { src: "/images/gallery/OurGallery2.jpeg", alt: "A celebration in soft evening light", category: "Celebrations", color: "sage", width: 1280, height: 851 },
+    { src: "/images/gallery/OurGallery3.jpeg", alt: "A quiet moment shared together", category: "Moments", color: "ochre", width: 1280, height: 851 },
+    { src: "/images/gallery/OurGallery4.jpeg", alt: "A joyful memory with family", category: "Celebrations", color: "rose", width: 1280, height: 851 },
+    { src: "/images/gallery/OurGallery5.jpeg", alt: "A glimpse of the journey so far", category: "Moments", color: "plum", width: 851, height: 1280 },
+    { src: "/images/gallery/OurGallery6.jpeg", alt: "A little joy, saved for always", category: "Celebrations", color: "cream", width: 851, height: 1280 },
   ],
   venues: [
     {
-      eventIds: ["mehendi", "sangeet", "mayera", "haldi", "baraat", "wedding"],
-      name: mainVenue.name,
-      address: mainVenue.address,
+      eventIds: ["puja", "mehendi"],
+      name: mishraNiwas.name,
+      address: mishraNiwas.address,
       landmark: null,
-      mapUrl: mainVenue.mapUrl,
+      mapUrl: null,
+      mapEmbedUrl: null,
+      contactName: null,
+      contactNumber: null,
+      parkingNote: null,
+      accessibilityNote: null,
+    },
+    {
+      eventIds: ["sangeet", "haldi", "wedding"],
+      name: "Silpanchal Bhawan",
+      address: "Ward 5, Mahananda Para, Burdwan Road, Siliguri - 734005",
+      landmark: "4th Floor",
+      mapUrl: Silpanchal.mapUrl,
       mapEmbedUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d7128.418427587506!2d88.4160469!3d26.7057625!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39e44144aa389719%3A0x71b51356be4a02c7!2sSilpanchal%20Bhawan!5e0!3m2!1sen!2sin!4v1791887837995!5m2!1sen!2sin",
       contactName: null,
       contactNumber: null,
@@ -332,19 +302,35 @@ const wedding: WeddingConfig = {
     },
   ],
   contacts: [],
+  correspondence: {
+    eyebrow: "We’re just a call away",
+    title: "Correspondence",
+    subtitle: "For any assistance, coordination, or communication during the wedding celebrations.",
+    brideSide: {
+      id: "bride-side",
+      heading: "Dulhan Ka Laadla Bhai",
+      name: "Somesh Mishra",
+      phone: "+91-7679236432",
+      photo: "/images/story/Somesh.jpeg",
+    },
+    groomSide: {
+      id: "groom-side",
+      heading: "Dulhe Ka Bada Bhai",
+      name: "Jitendra Bothra",
+      phone: "+91-7980408744",
+      photo: "/images/story/Jitendra.jpeg",
+    },
+  },
   social: {
     whatsappShareText:
       "We would love for you to join us as Sakshi and Vivek celebrate the beginning of their new journey.",
   },
-  rsvpDeadline: null,
-  rsvp: { minAttendees: 1, maxAttendees: 10, showConsent: false },
   privacy: { showContactNumbers: false, hideFullAddresses: false },
   theme: {
     showPetals: true,
     enableMusic: true,
     enableParallax: true,
     musicPath: "/audio/wedding-theme-placeholder.mp3",
-    showWishes: true,
   },
 };
 

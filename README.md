@@ -1,6 +1,6 @@
 # Sakshi & Vivek — Wedding Invitation
 
-A mobile-first digital wedding invitation built with Next.js App Router, TypeScript, Tailwind CSS, Framer Motion, Lucide, React Hook Form, and Zod.
+A mobile-first digital wedding invitation built with Next.js App Router, TypeScript, Tailwind CSS, Framer Motion, and Lucide.
 
 ## Run locally
 
@@ -23,7 +23,7 @@ All custom artwork lives in `public/images/`. Paths are set in [`src/data/weddin
 
 | File | Used for | Recommended size |
 | --- | --- | --- |
-| `public/images/logo.png` | Replaces every S & V monogram: loading screen, palace-door cover, navigation, hero, couple frame, RSVP confirmation, share section and footer | Square or near-square, 512 × 512 px, transparent background PNG |
+| `public/images/logo.png` | Replaces every S & V monogram: loading screen, palace-door cover, navigation, hero, couple frame, share section and footer | Square or near-square, 512 × 512 px, transparent background PNG |
 | `public/images/Couple.png` | “A little about our hearts” framed portrait (bottom-to-top shading is applied in CSS) | Portrait 4:5, 1200 × 1500 px or larger |
 | `public/images/story/OurStory1.png` | Our Story, first chapter | Landscape 4:3, 1200 × 900 px |
 | `public/images/story/OurStory2.png` | Our Story, second chapter | Landscape 4:3, 1200 × 900 px |
@@ -33,7 +33,7 @@ Gallery photos are optional: set `src` on the `gallery` entries (for example `/i
 
 Keep each image under roughly 500 KB where possible; Next.js optimizes and resizes them automatically.
 
-Wedding date: `weddingDate` is `2026-11-21T00:00:00+05:30` and drives the countdown. Celebrations are shown in the order of the `events` array (Mehendi, Sangeet Night, Mayera, Haldi, Baraat, Wedding & Seven Pheras).
+Wedding date: `weddingDate` is `2026-11-21T00:00:00+05:30` and drives the countdown. Celebrations are shown as a swipeable, draggable carousel in the order of the `events` array (Satyanarayan Puja & Shagun, Mehendi, Tilak & Sangeet, Matikor & Haldi, Baraat & Pheras).
 
 ## Deploy (Vercel) and share on WhatsApp
 
@@ -45,9 +45,9 @@ Wedding date: `weddingDate` is `2026-11-21T00:00:00+05:30` and drives the countd
 
 Before sharing, replace the placeholder text in `src/data/wedding.ts` (bride and groom introductions, story dates and descriptions) and add `public/audio/wedding-theme-placeholder.mp3` if you want background music.
 
-## RSVP and wishes demo storage
+## Correspondence contacts
 
-RSVP submissions and wishes are stored in the current browser's `localStorage` for demonstration only. This is not secure, shared, backed up, or production-grade storage. Before collecting real guest details, replace the service adapter with an authenticated server-side endpoint or database, add appropriate privacy/retention controls, and moderate wishes on a backend. Submissions are never displayed as a public guest list.
+The Correspondence section is driven by `correspondence` in [`src/data/wedding.ts`](./src/data/wedding.ts). Edit `name`, `heading` and `phone` for each side, or set `photo` (for example `/images/contacts/somesh.jpg`) to replace the circular initial placeholder with a portrait. Gallery entries also need their image `width` and `height` so each photo is shown in full, without cropping.
 
 ## Search indexing and privacy
 
