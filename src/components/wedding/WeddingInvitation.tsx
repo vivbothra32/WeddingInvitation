@@ -959,8 +959,8 @@ export default function WeddingInvitation() {
             <SectionHeading eyebrow={wedding.correspondence.eyebrow} title={wedding.correspondence.title} subtitle={wedding.correspondence.subtitle} titleId="correspondence-title" />
             <div className="contact-grid">
               {[
-                { side: wedding.families.brideFamilyLabel, ...wedding.correspondence.brideSide },
-                { side: wedding.families.groomFamilyLabel, ...wedding.correspondence.groomSide },
+                { side: wedding.families.brideFamilyLabel, ...wedding.correspondence.groomSide },
+                { side: wedding.families.brideFamilyLabel, ...wedding.correspondence.brideSide }
               ].map((contact) => (
                 <Reveal key={contact.id} className="contact-reveal">
                   <article className="contact-card">

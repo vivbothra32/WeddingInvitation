@@ -306,19 +306,19 @@ const wedding: WeddingConfig = {
     eyebrow: "We’re just a call away",
     title: "Correspondence",
     subtitle: "For any assistance, coordination, or communication during the wedding celebrations.",
+    groomSide: {
+      id: "groom-side",
+      heading: "Dulhan ke Pita Ji",
+      name: "Suroo Mishra",
+      phone: "+91-9832012970",
+      photo: "/images/story/SurooMishra.jpeg",
+    },
     brideSide: {
       id: "bride-side",
       heading: "Dulhan Ka Laadla Bhai",
       name: "Somesh Mishra",
       phone: "+91-7679236432",
       photo: "/images/story/Somesh.jpeg",
-    },
-    groomSide: {
-      id: "groom-side",
-      heading: "Dulhe Ka Bada Bhai",
-      name: "Jitendra Bothra",
-      phone: "+91-7980408744",
-      photo: "/images/story/Jitendra.jpeg",
     },
   },
   social: {
